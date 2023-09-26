@@ -10,7 +10,7 @@ int timer = 0;
 const Vector2D gravity{ 0,5 };
 
 const Vector2D PLAYER_VELOCITY = { 0,0 };
-const Vector2D PLAYER_JUMP = { 0,-5 };
+const Vector2D PLAYER_JUMP = { 0,-1 };
 
 enum GameObjectType
 {
@@ -35,6 +35,7 @@ bool HasCollided(Point2f pos1, Point2f pos2);
 void Platform(int Tiles);
 void PlayerOnPlatyform();
 void PlayerMovement();
+void PlayerJump();
 void DrawTiles();
 void Draw();
 
@@ -68,7 +69,7 @@ bool MainGameUpdate( float elapsedTime )
 	break;
 
 	case STATE_JUMPING:
-
+		PlayerJump();
 	break;
 	}
 
@@ -108,10 +109,51 @@ void PlayerMovement()
 		playerObj.pos.x -= 3;
 		playerObj.animSpeed = 0.2;
 	}
+	if (Play::KeyPressed(VK_SPACE))
+	{
+		gamestate.PlayerState = STATE_JUMPING;
+	}
 
 	Play::UpdateGameObject(playerObj);
 	Play::DrawObjectRotated(playerObj);
  	playerObj.scale = 0.5;
+}
+
+void PlayerJump()
+{
+	timer = 50;
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+	if (facing == 0)
+	{
+		Play::SetSpriteOrigin("jump_right_5", 64, 370);
+		Play::SetSprite(playerObj, "jump_right_5", 1.0f);
+		do
+		{
+			--timer;
+			playerObj.velocity += PLAYER_JUMP; 
+			playerObj.animSpeed = 0.05; 
+		} while (timer > 0); 
+	}
+	if (facing == 1)
+	{
+		Play::SetSpriteOrigin("jump_left_5", 64, 370);
+		Play::SetSprite(playerObj, "jump_left_5", 1.0f);
+		do
+		{
+			--timer;
+			playerObj.velocity += PLAYER_JUMP;
+			playerObj.animSpeed = 0.05;
+		} while (timer > 0);
+	}
+	if (timer <= 0);
+	{
+		gamestate.PlayerState = STATE_WALKING;
+	}
+	
+
+	Play::UpdateGameObject(playerObj);
+	Play::DrawObjectRotated(playerObj);
+	playerObj.scale = 0.5;
 }
 
 void Platform(int tiles)
