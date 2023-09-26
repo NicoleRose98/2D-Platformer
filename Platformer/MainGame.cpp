@@ -5,12 +5,14 @@
 int DISPLAY_WIDTH{ 1280 };
 int DISPLAY_HEIGHT{ 720 };
 int DISPLAY_SCALE{ 1 };
+
 int facing = 0;
 int timer = 0;
 const Vector2D gravity{ 0,5 };
 
+int PlayerSpeed = 0;
 const Vector2D PLAYER_VELOCITY = { 0,0 };
-const Vector2D PLAYER_JUMP = { 0,-1 };
+const Vector2D PLAYER_JUMP = { 0,-5 };
 
 enum GameObjectType
 {
@@ -54,12 +56,16 @@ void MainGameEntry( PLAY_IGNORE_COMMAND_LINE )
 	Play::CreateGameObject(TYPE_PLAYER, { DISPLAY_WIDTH / 2, 690 }, 10, "walk_right_8");
 	Play::SetSpriteOrigin("walk_right_8", 64, 370);
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
+	playerObj.velocity = PLAYER_VELOCITY;
 }
 
 // Called by PlayBuffer every frame (60 times a second!)
 bool MainGameUpdate( float elapsedTime )
 {
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
+	playerObj.pos += playerObj.velocity;
+	playerObj.animSpeed = 0.2;
+
 
 	Draw();
 	DrawTiles();
@@ -73,6 +79,8 @@ bool MainGameUpdate( float elapsedTime )
 	break;
 
 	case STATE_JUMPING:
+		playerObj.velocity = PLAYER_JUMP;
+		--timer;
 		PlayerJump();
 		PlayerJumpingDirection();
 	break;
@@ -149,6 +157,7 @@ void PlayerOnPlatform()
 		if ((HasCollided(playerObj.pos, floorIdObj.pos)) && (timer <= 0))
 		{
 			playerObj.velocity = PLAYER_VELOCITY;
+			playerObj.pos.y = floorIdObj.pos.y - 15;
 			gamestate.PlayerState = STATE_WALKING;
 		}
 	}
@@ -157,24 +166,20 @@ void PlayerOnPlatform()
 void PlayerMovement()
 {
 	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-	playerObj.animSpeed = 0;
 	if (Play::KeyDown(VK_RIGHT))
 	{
 		facing = 0;
 		playerObj.pos.x += 3;
-		playerObj.animSpeed = 0.2;
-		Play::UpdateGameObject(playerObj);
 	}
 	if (Play::KeyDown(VK_LEFT))
 	{
 		facing = 1;
 		playerObj.pos.x -= 3;
-		playerObj.animSpeed = 0.2;
-		Play::UpdateGameObject(playerObj);
 	}
 	if (Play::KeyPressed(VK_SPACE))
 	{
 		gamestate.PlayerState = STATE_JUMPING;
+		timer = 20;
 	}
 
 	Play::DrawObjectRotated(playerObj);
@@ -198,33 +203,25 @@ void PlayerWalkingDirection()
 
 void PlayerJump()
 {
-	timer = 20;
 	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
 	playerObj.scale = 0.5;
-	
-	do
-	{ 
-		--timer;
-		playerObj.velocity = playerObj.velocity + PLAYER_JUMP;
-		playerObj.animSpeed = 0.25;
-		Play::UpdateGameObject(playerObj);
-		Play::DrawObjectRotated(playerObj);
-	} 
-	while (timer > 0);
-		
-	if (timer <= 0);
+
+	if (timer <= 0)
 	{
 		gamestate.PlayerState = STATE_FALLING;
-	}  
+	}
+
 }
 
 void PlayerJumpingDirection()
 {
 	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+
 	if (facing == 0)
 	{
 		Play::SetSpriteOrigin("jump_right_3", 64, 370);
 		Play::SetSprite(playerObj, "jump_right_3", 1.0f);
+		
 	}
 	if (facing == 1)
 	{
@@ -247,5 +244,4 @@ void PlayerFallingDirection()
 		Play::SetSprite(playerObj, "falling_left", 1.0f);
 	}
 	Play::UpdateGameObject(playerObj);
-	Play::DrawObjectRotated(playerObj);
 }
