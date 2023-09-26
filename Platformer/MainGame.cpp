@@ -22,6 +22,7 @@ enum PlayerState
 {
 	STATE_WALKING,
 	STATE_JUMPING,
+	STATE_FALLING,
 };
 
 struct GameState
@@ -33,9 +34,12 @@ GameState gamestate;
 
 bool HasCollided(Point2f pos1, Point2f pos2);
 void Platform(int Tiles);
-void PlayerOnPlatyform();
+void PlayerOnPlatform();
 void PlayerMovement();
+void PlayerWalkingDirection();
 void PlayerJump();
+void PlayerJumpingDirection();
+void PlayerFallingDirection();
 void DrawTiles();
 void Draw();
 
@@ -59,17 +63,24 @@ bool MainGameUpdate( float elapsedTime )
 
 	Draw();
 	DrawTiles();
+	PlayerMovement();
 
 	switch (gamestate.PlayerState)
 	{
 	case STATE_WALKING:
-		playerObj.velocity = gravity;
-		PlayerOnPlatyform(); 
-		PlayerMovement(); 
+		PlayerOnPlatform(); 
+		PlayerWalkingDirection();
 	break;
 
 	case STATE_JUMPING:
 		PlayerJump();
+		PlayerJumpingDirection();
+	break;
+
+	case STATE_FALLING:
+		PlayerOnPlatform();
+		playerObj.velocity = gravity;
+		PlayerFallingDirection();
 	break;
 	}
 
@@ -79,7 +90,7 @@ bool MainGameUpdate( float elapsedTime )
 
 // Gets called once when the player quits the game 
 int MainGameExit( void )
-{
+{  
 	Play::DestroyManager();
 	return PLAY_OK;
 }
@@ -90,77 +101,25 @@ void Draw()
 	Play::DrawBackground();
 }
   
-void PlayerMovement()
+bool HasCollided(Point2f pos1, Point2f pos2)
 {
-	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-	playerObj.animSpeed = 0;
-	if (Play::KeyDown(VK_RIGHT))
-	{
-		facing = 0;
-		Play::SetSprite(playerObj, "walk_right_8", 1.0f);
-		playerObj.pos.x += 3;
-		playerObj.animSpeed = 0.2;
-	}
-	if (Play::KeyDown(VK_LEFT))
-	{
-		facing = 1;
-		Play::SetSpriteOrigin("walk_left_8", 64, 370);
-		Play::SetSprite(playerObj, "walk_left_8", 1.0f);
-		playerObj.pos.x -= 3;
-		playerObj.animSpeed = 0.2;
-	}
-	if (Play::KeyPressed(VK_SPACE))
-	{
-		gamestate.PlayerState = STATE_JUMPING;
-	}
+	const float DISTANCE_TEST = 20;
 
-	Play::UpdateGameObject(playerObj);
-	Play::DrawObjectRotated(playerObj);
- 	playerObj.scale = 0.5;
-}
-
-void PlayerJump()
-{
-	timer = 50;
-	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-	if (facing == 0)
+	Vector2f separation = pos2 - pos1;
+	float dist = sqrt((separation.x * separation.x) + (separation.y * separation.y));
+	if (dist < DISTANCE_TEST)
 	{
-		Play::SetSpriteOrigin("jump_right_5", 64, 370);
-		Play::SetSprite(playerObj, "jump_right_5", 1.0f);
-		do
-		{
-			--timer;
-			playerObj.velocity += PLAYER_JUMP; 
-			playerObj.animSpeed = 0.05; 
-		} while (timer > 0); 
+		return true;
 	}
-	if (facing == 1)
-	{
-		Play::SetSpriteOrigin("jump_left_5", 64, 370);
-		Play::SetSprite(playerObj, "jump_left_5", 1.0f);
-		do
-		{
-			--timer;
-			playerObj.velocity += PLAYER_JUMP;
-			playerObj.animSpeed = 0.05;
-		} while (timer > 0);
-	}
-	if (timer <= 0);
-	{
-		gamestate.PlayerState = STATE_WALKING;
-	}
-	
-
-	Play::UpdateGameObject(playerObj);
-	Play::DrawObjectRotated(playerObj);
-	playerObj.scale = 0.5;
+	else
+		return false;
 }
 
 void Platform(int tiles)
 {
 	int spacing = 20;
 	GameObject& floorObj{ Play::GetGameObjectByType(TYPE_FLOOR) };
-	for (int n = 0 ; n < tiles; n++)
+	for (int n = 0; n < tiles; n++)
 	{
 		Play::CreateGameObject(TYPE_FLOOR, { n * spacing + 10, 700 }, 10, "floor");
 	}
@@ -179,7 +138,7 @@ void DrawTiles()
 	}
 }
 
-void PlayerOnPlatyform()
+void PlayerOnPlatform()
 {
 	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
 
@@ -187,23 +146,106 @@ void PlayerOnPlatyform()
 	for (int floorId : floorIds)
 	{
 		GameObject& floorIdObj = Play::GetGameObject(floorId);
-		if ((HasCollided(playerObj.pos, floorIdObj.pos)) && (timer<=0))
+		if ((HasCollided(playerObj.pos, floorIdObj.pos)) && (timer <= 0))
 		{
 			playerObj.velocity = PLAYER_VELOCITY;
+			gamestate.PlayerState = STATE_WALKING;
 		}
 	}
 }
 
-bool HasCollided(Point2f pos1, Point2f pos2)
+void PlayerMovement()
 {
-	const float DISTANCE_TEST = 20;
-
-	Vector2f separation = pos2 - pos1;
-	float dist = sqrt((separation.x * separation.x) + (separation.y * separation.y));
-	if (dist < DISTANCE_TEST)
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+	playerObj.animSpeed = 0;
+	if (Play::KeyDown(VK_RIGHT))
 	{
-		return true;
+		facing = 0;
+		playerObj.pos.x += 3;
+		playerObj.animSpeed = 0.2;
+		Play::UpdateGameObject(playerObj);
 	}
-	else
-		return false;
+	if (Play::KeyDown(VK_LEFT))
+	{
+		facing = 1;
+		playerObj.pos.x -= 3;
+		playerObj.animSpeed = 0.2;
+		Play::UpdateGameObject(playerObj);
+	}
+	if (Play::KeyPressed(VK_SPACE))
+	{
+		gamestate.PlayerState = STATE_JUMPING;
+	}
+
+	Play::DrawObjectRotated(playerObj);
+ 	playerObj.scale = 0.5;
+}
+
+void PlayerWalkingDirection()
+{
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) }; 
+	if (facing == 0) 
+	{
+		Play::SetSpriteOrigin("walk_right_8", 64, 370); 
+		Play::SetSprite(playerObj, "walk_right_8", 1.0f); 
+	}
+	if (facing == 1)
+	{ 
+		Play::SetSpriteOrigin("walk_left_8", 64, 370);  
+		Play::SetSprite(playerObj, "walk_left_8", 1.0f); 
+	}
+}
+
+void PlayerJump()
+{
+	timer = 20;
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+	playerObj.scale = 0.5;
+	
+	do
+	{ 
+		--timer;
+		playerObj.velocity = playerObj.velocity + PLAYER_JUMP;
+		playerObj.animSpeed = 0.25;
+		Play::UpdateGameObject(playerObj);
+		Play::DrawObjectRotated(playerObj);
+	} 
+	while (timer > 0);
+		
+	if (timer <= 0);
+	{
+		gamestate.PlayerState = STATE_FALLING;
+	}  
+}
+
+void PlayerJumpingDirection()
+{
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+	if (facing == 0)
+	{
+		Play::SetSpriteOrigin("jump_right_3", 64, 370);
+		Play::SetSprite(playerObj, "jump_right_3", 1.0f);
+	}
+	if (facing == 1)
+	{
+		Play::SetSpriteOrigin("jump_left_3", 64, 370);
+		Play::SetSprite(playerObj, "jump_left_3", 1.0f);
+	}
+}
+
+void PlayerFallingDirection()
+{
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+	if (facing == 0)
+	{
+		Play::SetSpriteOrigin("falling_right", 64, 370);
+		Play::SetSprite(playerObj, "falling_right", 1.0f);
+	}
+	if (facing == 1)
+	{
+		Play::SetSpriteOrigin("falling_left", 64, 370);
+		Play::SetSprite(playerObj, "falling_left", 1.0f);
+	}
+	Play::UpdateGameObject(playerObj);
+	Play::DrawObjectRotated(playerObj);
 }
