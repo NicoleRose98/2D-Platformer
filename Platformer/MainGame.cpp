@@ -31,13 +31,12 @@ enum PlayerState
 struct GameState
 {
 	int PlayerState{ STATE_IDLE };
-	int attachedtile{ -1 };
 };
 
 GameState gamestate;
 
-void Floor(int Tiles, int Height);
-void TileAABB();
+void Floor(int xtiles, int ytiles);
+void Grounded();
 void PlayerMovement();
 void Idle();
 void WalkState();
@@ -71,7 +70,7 @@ void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 	Play::CreateManager(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_SCALE);
 	Play::CentreAllSpriteOrigins();
 
-	Floor(20, 4);
+	Floor(26,4);
 	Play::CreateGameObject(TYPE_PLAYER, { DISPLAY_WIDTH / 2, 675 }, 10, "walk_right_8");
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	playerObj.velocity = PLAYER_VELOCITY;
@@ -79,7 +78,7 @@ void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 	Play::CreateGameObject(TYPE_BACKGROUND, { DISPLAY_WIDTH / 2, -280 }, 10, "background");
 	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
 
-	TileAABB();
+	Grounded();
 }
 
 // Called by PlayBuffer every frame (60 times a second!)
@@ -108,7 +107,7 @@ bool MainGameUpdate(float elapsedTime)
 
 	case STATE_WALKING:
 		PlayerWalkingDirection();
-		TileAABB();
+		Grounded();
 		break;
 
 	case STATE_JUMPING:
@@ -118,7 +117,7 @@ bool MainGameUpdate(float elapsedTime)
 
 	case STATE_FALLING:
 		PlayerFallingDirection();
-		TileAABB();
+		Grounded();
 		break;
 	}
 
@@ -162,8 +161,8 @@ void DrawTiles()
 	for (int floorId : floorIds)
 	{
 		GameObject& floorIdObj = Play::GetGameObject(floorId);
-		Play::UpdateGameObject(floorIdObj);
 		floorIdObj.scale = 0.5;
+		Play::UpdateGameObject(floorIdObj);
 		Play::DrawObjectRotated(floorIdObj);
 
 
@@ -173,26 +172,26 @@ void DrawTiles()
 		Play::DrawLine(aabb[TYPE_FLOOR].TopRight(), aabb[TYPE_FLOOR].BottomRight(), Play::cGreen);
 		Play::DrawLine(aabb[TYPE_FLOOR].TopLeft(), aabb[TYPE_FLOOR].TopRight(), Play::cGreen);
 		Play::DrawLine(aabb[TYPE_FLOOR].BottomRight(), aabb[TYPE_FLOOR].BottomLeft(), Play::cGreen);
-
-		GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-		aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos);
-		aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f);
-		Play::DrawLine(aabb[TYPE_PLAYER].BottomLeft(), aabb[TYPE_PLAYER].TopLeft(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_PLAYER].TopRight(), aabb[TYPE_PLAYER].BottomRight(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_PLAYER].TopLeft(), aabb[TYPE_PLAYER].TopRight(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_PLAYER].BottomRight(), aabb[TYPE_PLAYER].BottomLeft(), Play::cGreen);
-
 	}
+
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+	aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos); 
+	aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f); 
+	Play::DrawLine(aabb[TYPE_PLAYER].BottomLeft(), aabb[TYPE_PLAYER].TopLeft(), Play::cGreen); 
+	Play::DrawLine(aabb[TYPE_PLAYER].TopRight(), aabb[TYPE_PLAYER].BottomRight(), Play::cGreen); 
+	Play::DrawLine(aabb[TYPE_PLAYER].TopLeft(), aabb[TYPE_PLAYER].TopRight(), Play::cGreen); 
+	Play::DrawLine(aabb[TYPE_PLAYER].BottomRight(), aabb[TYPE_PLAYER].BottomLeft(), Play::cGreen);
+	
 }
 
-void TileAABB()
+void Grounded()
 {
 	std::vector<int> floorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
 	for (int floorId : floorIds)
 	{
 		GameObject& floorIdObj{ Play::GetGameObject(floorId) };
 		aabb[TYPE_FLOOR].pos = Point2D(floorIdObj.pos);
-		aabb[TYPE_FLOOR].size = Vector2D(26.f, 26.f);
+		aabb[TYPE_FLOOR].size = Vector2D(25.f, 25.f);
 
 		GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
 		aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos);
