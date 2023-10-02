@@ -87,7 +87,12 @@ bool MainGameUpdate(float elapsedTime)
 {
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	playerObj.velocity += gravity;
-	Play::SetCameraPosition({ 0 , playerObj.pos.y - 650 });
+	Play::SetCameraPosition({ 0 , 0 });
+
+	if (playerObj.pos.y <= 450)
+	{
+		Play::SetCameraPosition({ 0 , playerObj.pos.y - 450});
+	}
 
 	Draw();
 	DrawTiles();
