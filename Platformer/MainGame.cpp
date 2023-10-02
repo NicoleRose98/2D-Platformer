@@ -17,6 +17,7 @@ enum GameObjectType
 {
 	TYPE_PLAYER = 0,
 	TYPE_FLOOR,
+	TYPE_BACKGROUND,
 };
 
 enum PlayerState
@@ -30,11 +31,12 @@ enum PlayerState
 struct GameState
 {
 	int PlayerState{ STATE_IDLE };
+	int attachedtile{ -1 };
 };
 
 GameState gamestate;
 
-void Floor(int Tiles,int Height);
+void Floor(int Tiles, int Height);
 void TileAABB();
 void PlayerMovement();
 void Idle();
@@ -64,59 +66,64 @@ struct AABB
 AABB aabb[2];
 
 // The entry point for a PlayBuffer program
-void MainGameEntry( PLAY_IGNORE_COMMAND_LINE )
+void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 {
-	Play::CreateManager( DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_SCALE );
-	Play::LoadBackground("Data\\Backgrounds\\background1.png");
+	Play::CreateManager(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_SCALE);
 	Play::CentreAllSpriteOrigins();
-	
-	Floor(20,1);
-	Play::CreateGameObject(TYPE_PLAYER, { DISPLAY_WIDTH / 2, DISPLAY_HEIGHT}, 10, "walk_right_8");
+
+	Floor(20, 4);
+	Play::CreateGameObject(TYPE_PLAYER, { DISPLAY_WIDTH / 2, 675 }, 10, "walk_right_8");
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	playerObj.velocity = PLAYER_VELOCITY;
+
+	Play::CreateGameObject(TYPE_BACKGROUND, { DISPLAY_WIDTH / 2, -280 }, 10, "background");
+	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
+
 	TileAABB();
 }
 
 // Called by PlayBuffer every frame (60 times a second!)
-bool MainGameUpdate( float elapsedTime )
+bool MainGameUpdate(float elapsedTime)
 {
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	playerObj.velocity += gravity;
+	Play::SetCameraPosition({ 0 , playerObj.pos.y - 650 });
+
 	Draw();
 	DrawTiles();
 	PlayerMovement();
-	
+
 
 	switch (gamestate.PlayerState)
 	{
 	case STATE_IDLE:
 		Idle();
 		WalkState();
-	break;
-	  
+		break;
+
 	case STATE_WALKING:
 		PlayerWalkingDirection();
 		TileAABB();
-	break;
+		break;
 
 	case STATE_JUMPING:
 		PlayerJumpingDirection();
 		PlayerJump();
-	break;
+		break;
 
-	case STATE_FALLING:  
+	case STATE_FALLING:
 		PlayerFallingDirection();
 		TileAABB();
-	break;
+		break;
 	}
 
 	Play::PresentDrawingBuffer();
-	return Play::KeyDown( VK_ESCAPE );
+	return Play::KeyDown(VK_ESCAPE);
 }
 
 // Gets called once when the player quits the game 
-int MainGameExit( void )
-{  
+int MainGameExit(void)
+{
 	Play::DestroyManager();
 	return PLAY_OK;
 }
@@ -124,7 +131,9 @@ int MainGameExit( void )
 void Draw()
 {
 	Play::ClearDrawingBuffer(Play::cGrey);
-	Play::DrawBackground();
+
+	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
+	Play::DrawObjectRotated(backgroundObj);
 }
 
 void Floor(int xtiles, int ytiles)
@@ -136,7 +145,7 @@ void Floor(int xtiles, int ytiles)
 	{
 		for (int m = 0; m < ytiles; m++)
 		{
-			Play::CreateGameObject(TYPE_FLOOR, { n * widthspacing+10, 700 - m * heightspacing}, 10, "floor");
+			Play::CreateGameObject(TYPE_FLOOR, { n * widthspacing + 10, 700 - m * heightspacing }, 10, "floor");
 		}
 	}
 }
@@ -161,40 +170,45 @@ void DrawTiles()
 		Play::DrawLine(aabb[TYPE_FLOOR].BottomRight(), aabb[TYPE_FLOOR].BottomLeft(), Play::cGreen);
 
 		GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-		aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos); 
-		aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f); 
-		Play::DrawLine(aabb[TYPE_PLAYER].BottomLeft(), aabb[TYPE_PLAYER].TopLeft(), Play::cGreen); 
-		Play::DrawLine(aabb[TYPE_PLAYER].TopRight(), aabb[TYPE_PLAYER].BottomRight(), Play::cGreen); 
-		Play::DrawLine(aabb[TYPE_PLAYER].TopLeft(), aabb[TYPE_PLAYER].TopRight(), Play::cGreen); 
-		Play::DrawLine(aabb[TYPE_PLAYER].BottomRight(), aabb[TYPE_PLAYER].BottomLeft(), Play::cGreen); 
+		aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos);
+		aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f);
+		Play::DrawLine(aabb[TYPE_PLAYER].BottomLeft(), aabb[TYPE_PLAYER].TopLeft(), Play::cGreen);
+		Play::DrawLine(aabb[TYPE_PLAYER].TopRight(), aabb[TYPE_PLAYER].BottomRight(), Play::cGreen);
+		Play::DrawLine(aabb[TYPE_PLAYER].TopLeft(), aabb[TYPE_PLAYER].TopRight(), Play::cGreen);
+		Play::DrawLine(aabb[TYPE_PLAYER].BottomRight(), aabb[TYPE_PLAYER].BottomLeft(), Play::cGreen);
 
 	}
 }
-   
+
 void TileAABB()
 {
 	std::vector<int> floorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
 	for (int floorId : floorIds)
 	{
-		GameObject& floorIdObj{ Play::GetGameObject(floorId)};
+		GameObject& floorIdObj{ Play::GetGameObject(floorId) };
 		aabb[TYPE_FLOOR].pos = Point2D(floorIdObj.pos);
 		aabb[TYPE_FLOOR].size = Vector2D(26.f, 26.f);
 
-		GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) }; 
+		GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
 		aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos);
 		aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f);
 
 		bool left = (aabb[TYPE_FLOOR].Left().x < aabb[TYPE_PLAYER].Right().x);
 		bool right = (aabb[TYPE_FLOOR].Right().x > aabb[TYPE_PLAYER].Left().x);
 		bool up = (aabb[TYPE_FLOOR].Top().y < aabb[TYPE_PLAYER].Bottom().y);
-		bool down = (aabb[TYPE_FLOOR].Bottom().y > aabb[TYPE_PLAYER].Top().y);
+		bool down = (aabb[TYPE_FLOOR].Bottom().y > aabb[TYPE_PLAYER].Bottom().y);
 
-		if (up && left && right)
-		{     
+		if ((up && down) && (left || right))
+		{
 			playerObj.velocity = { 0,0 };
 			gravity = { 0,0 };
-			playerObj.pos.y = floorIdObj.pos.y - 66;  
-			gamestate.PlayerState = STATE_IDLE;    
+			playerObj.pos.y = floorIdObj.pos.y - 64;
+		}
+		else
+		{
+			gravity = { 0,5 };
+			playerObj.velocity = { 0,0 };
+			gamestate.PlayerState = STATE_FALLING;
 		}
 	}
 }
@@ -202,7 +216,7 @@ void TileAABB()
 void WalkState()
 {
 	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-	if (playerObj.velocity.y == 0)
+	if ((playerObj.velocity.y == 0) && (playerObj.velocity.x != 0))
 	{
 		gamestate.PlayerState = STATE_WALKING;
 	}
@@ -214,16 +228,16 @@ void PlayerMovement()
 	if (Play::KeyDown(VK_RIGHT))
 	{
 		facing = 0;
-		playerObj.pos.x += 5;
+		playerObj.velocity.x += 5;
 		playerObj.animSpeed = 0.2;
-		Play::UpdateGameObject(playerObj); 
+		Play::UpdateGameObject(playerObj);
 	}
 	else if (Play::KeyDown(VK_LEFT))
 	{
 		facing = 1;
-		playerObj.pos.x -= 5;
+		playerObj.velocity.x -= 5;
 		playerObj.animSpeed = 0.2;
-		Play::UpdateGameObject(playerObj); 
+		Play::UpdateGameObject(playerObj);
 	}
 	else
 	{
@@ -231,14 +245,14 @@ void PlayerMovement()
 	}
 	if (Play::KeyPressed(VK_SPACE))
 	{
-		playerObj.velocity = { 0, -15 };       
+		playerObj.velocity = { 0, -15 };
 		gravity = { 0 , 0.5f };
 		gamestate.PlayerState = STATE_JUMPING;
-		
+
 	}
-	
+
 	Play::DrawObjectRotated(playerObj);
- 	playerObj.scale = 0.5;    
+	playerObj.scale = 0.5;
 }
 
 void Idle()
@@ -259,18 +273,18 @@ void Idle()
 }
 
 void PlayerWalkingDirection()
-{	
-	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) }; 
+{
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
 	playerObj.animSpeed = 0.2;
-	if (facing == 0) 
+	if (facing == 0)
 	{
-		Play::SetSprite(playerObj, "walk_right_8", 1.0f); 
+		Play::SetSprite(playerObj, "walk_right_8", 1.0f);
 	}
 	if (facing == 1)
 	{
-		Play::SetSprite(playerObj, "walk_left_8", 1.0f); 
+		Play::SetSprite(playerObj, "walk_left_8", 1.0f);
 	}
-} 
+}
 
 void PlayerJumpingDirection()
 {
