@@ -43,6 +43,7 @@ bool TileTooClose(Point2f pos1, Point2f pos2);
 void Platforms();
 void MovingPlatforms();
 void Grounded();
+void OnMovingPlatform();
 void PlayerMovement();
 void PlayerIdleDirection();
 void IdleToWalking();
@@ -71,7 +72,7 @@ struct AABB
 	Point2D TopRight() { return Point2D(pos.x + size.x, pos.y - size.y); }
 	Point2D BottomLeft() { return Point2D(pos.x - size.x, pos.y + size.y); }
 };
-AABB aabb[2];
+AABB aabb[3];
 
 
 
@@ -122,6 +123,7 @@ bool MainGameUpdate(float elapsedTime)
 		IdleToWalking();
 		PlayerJump();
 		Grounded();
+		OnMovingPlatform();
 		Falling();
 		break;
 
@@ -133,6 +135,7 @@ bool MainGameUpdate(float elapsedTime)
 	case STATE_FALLING:
 		PlayerFallingDirection();
 		Grounded();
+		OnMovingPlatform();
 		break;
 	}
 
@@ -291,7 +294,14 @@ void DrawMovingTiles()
 		movingFloorIdObj.scale = 0.5;
 		Play::UpdateGameObject(movingFloorIdObj);
 		Play::DrawObjectRotated(movingFloorIdObj); 
-		movingFloorIdObj.velocity = { 5,0 };
+		movingFloorIdObj.velocity = { 5,0 }; 
+
+		aabb[TYPE_MOVINGFLOOR].pos = Point2D(movingFloorIdObj.pos);
+		aabb[TYPE_MOVINGFLOOR].size = Vector2D(25.f, 25.f);
+		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].BottomLeft(), aabb[TYPE_MOVINGFLOOR].TopLeft(), Play::cGreen);
+		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].TopRight(), aabb[TYPE_MOVINGFLOOR].BottomRight(), Play::cGreen);
+		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].TopLeft(), aabb[TYPE_MOVINGFLOOR].TopRight(), Play::cGreen);
+		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].BottomRight(), aabb[TYPE_MOVINGFLOOR].BottomLeft(), Play::cGreen);
 
 		if (movingFloorIdObj.pos.x > 1300)
 		{
@@ -357,6 +367,35 @@ void Grounded()
 		}
 	}
 }
+
+void OnMovingPlatform()
+{
+	std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_MOVINGFLOOR) };
+	for (int movingFloorId : movingFloorIds)
+	{
+		GameObject& movingFloorIdObj{ Play::GetGameObject(movingFloorId) }; 
+		aabb[TYPE_MOVINGFLOOR].pos = Point2D(movingFloorIdObj.pos); 
+		aabb[TYPE_MOVINGFLOOR].size = Vector2D(25.f, 25.f);
+
+		GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) }; 
+		aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos); 
+		aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f);
+
+		bool left = (aabb[TYPE_MOVINGFLOOR].Left().x < aabb[TYPE_PLAYER].Right().x); 
+		bool right = (aabb[TYPE_MOVINGFLOOR].Right().x > aabb[TYPE_PLAYER].Left().x); 
+		bool up = (aabb[TYPE_MOVINGFLOOR].Top().y < aabb[TYPE_PLAYER].Bottom().y); 
+		bool down = (aabb[TYPE_MOVINGFLOOR].Bottom().y > aabb[TYPE_PLAYER].Bottom().y); 
+
+		if (up && down && left && right)
+		{
+			playerObj.velocity = { 0,0 };
+			gravity = { 0,0 };
+			playerObj.pos.y = movingFloorIdObj.pos.y - 64;
+			gamestate.PlayerState = STATE_WALKING;
+		}
+	}
+}
+
 
 void WalkToFall()
 {
