@@ -56,6 +56,7 @@ void PlayerOffScreen();
 void IdleToWalking();
 void WalkToFall();
 void Falling();
+void Umberela();
 void PlayerJump();
 
 void PlayerIdleDirection();
@@ -160,6 +161,7 @@ bool MainGameUpdate(float elapsedTime)
 
 	case STATE_FALLING:
 		PlayerFallingDirection();
+		Umberela();
 		Grounded();
 		OnMovingPlatform();
 		break;
@@ -227,6 +229,8 @@ void PlayerOffScreen()
 		playerObj.pos.x = 1350;
 	}
 }
+
+
 
 void Platforms()
 {
@@ -531,6 +535,38 @@ void Falling()
 		gravity = { 0 , 1.f };
 		gamestate.PlayerState = STATE_FALLING;
 	}
+}
+
+void Umberela()
+{
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+		if (Play::KeyDown(VK_SHIFT))
+		{
+			gravity = { 0, 1.f };
+			playerObj.velocity = { 0,0 };
+
+			if (facing == 0)
+			{
+				Play::SetSprite(playerObj, "slow_falling_right", 1.0f);
+			}
+			if (facing == 1)
+			{
+				Play::SetSprite(playerObj, "slow_falling_left", 1.0f);
+			}
+			Play::UpdateGameObject(playerObj);
+		}
+		else
+		{
+			gravity = { 0,1.f };
+			if (facing == 0)
+			{
+				Play::SetSprite(playerObj, "falling_right", 1.0f);
+			}
+			if (facing == 1)
+			{
+				Play::SetSprite(playerObj, "falling_left", 1.0f);
+			}
+		}
 }
 
 void PlayerIdleDirection()
