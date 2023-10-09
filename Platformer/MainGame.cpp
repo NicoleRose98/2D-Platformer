@@ -8,6 +8,7 @@ int DISPLAY_SCALE{ 1 };
 
 int HEIGHT = -1;
 int timer = 0;
+int timer2 = 60;
 int facing = 0;
 int Fallen = 0;
 int HasKey = 0;
@@ -22,11 +23,12 @@ Vector2D PLAYER_JUMP = { 0,-40 };
 
 enum GameObjectType
 {
-	TYPE_FLOOR = 0,
+	TYPE_PLAYER = 0,
+	TYPE_FLOOR,
 	TYPE_MOVINGFLOOR,
 	TYPE_KEY,
 	TYPE_FINISHLINE,
-	TYPE_PLAYER,
+	TYPE_DOOR,
 	TYPE_BACKGROUND,
 };
 
@@ -49,6 +51,7 @@ bool HasCollided(Point2f pos1, Point2f pos2);
 bool TileProximity(Point2f pos1, Point2f pos2); 
 bool TileTooClose(Point2f pos1, Point2f pos2); 
 
+void GameControls();
 void Platforms();
 void MovingPlatforms();
 void PlatformMovement();
@@ -115,6 +118,9 @@ void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 	Play::CreateGameObject(TYPE_FINISHLINE, { DISPLAY_WIDTH / 2,-1200 }, 10, "finish");
 	GameObject& finishlineObj(Play::GetGameObjectByType(TYPE_FINISHLINE));
 
+	Play::CreateGameObject(TYPE_DOOR, { 1200,620 }, 10, "door");
+	GameObject& doorObj(Play::GetGameObjectByType(TYPE_DOOR));
+
 	std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_MOVINGFLOOR) };
 	for (int movingFloorId : movingFloorIds)
 	{
@@ -138,7 +144,7 @@ bool MainGameUpdate(float elapsedTime)
 	{
 		Play::SetCameraPosition({ 0 , playerObj.pos.y - 450 });
 	}
-	if (playerObj.pos.y <= -920)
+	if (playerObj.pos.y <= -830)
 	{
 		Play::SetCameraPosition({ 0 , -1280 });
 	}
@@ -160,6 +166,7 @@ bool MainGameUpdate(float elapsedTime)
 	PlayerOffScreen();
 	PlatformMovement();
 	--timer;
+	--timer2;
 
 	switch (gamestate.PlayerState)
 	{
@@ -189,6 +196,7 @@ bool MainGameUpdate(float elapsedTime)
 		break;
 	}
 	
+	GameControls();
 	Play::PresentDrawingBuffer();
 	return Play::KeyDown(VK_ESCAPE);
 }
@@ -200,6 +208,25 @@ int MainGameExit(void)
 	return PLAY_OK;
 }
 
+void GameControls()
+{
+	if (timer2 <= -60)
+	{
+		timer2 = 60;
+	}
+
+	Play::SetDrawingSpace(Play::SCREEN);
+	if (timer2 >= 0)
+	{
+		Play::DrawFontText("132px", "Use arrow keys to walk", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
+	}
+	else if (timer2 < 0)
+	{
+		Play::DrawFontText("132px", "Use space to jump", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
+	}
+	Play::SetDrawingSpace(Play::WORLD);
+}
+
 void Draw()
 {
 	Play::ClearDrawingBuffer(Play::cBlack);
@@ -207,9 +234,9 @@ void Draw()
 	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
 	Play::DrawObjectRotated(backgroundObj);
 
-	Play::SetDrawingSpace(Play::SCREEN);
-	Play::DrawFontText("132px", std::to_string(HEIGHT), { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
-	Play::SetDrawingSpace(Play::WORLD);
+	GameObject& doorObj(Play::GetGameObjectByType(TYPE_DOOR));
+	Play::DrawObjectRotated(doorObj);
+	doorObj.scale = 2;
 }
 
 bool HasCollided(Point2f pos1, Point2f pos2)
