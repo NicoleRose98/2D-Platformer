@@ -5,6 +5,7 @@
 int DISPLAY_WIDTH{ 1280 };
 int DISPLAY_HEIGHT{ 720 };
 int DISPLAY_SCALE{ 1 };
+int INVENTORY_SPACES{ 3 };
 
 int HEIGHT = -1;
 int timer = 0;
@@ -26,9 +27,11 @@ enum GameObjectType
 	TYPE_PLAYER = 0,
 	TYPE_FLOOR,
 	TYPE_MOVINGFLOOR,
-	TYPE_KEY,
-	TYPE_FINISHLINE,
+	TYPE_WHITEKEY,
+	TYPE_ORANGEKEY,
+	TYPE_GREENKEY,
 	TYPE_DOOR,
+	TYPE_INVENTORY,
 	TYPE_BACKGROUND,
 };
 
@@ -51,13 +54,15 @@ bool HasCollided(Point2f pos1, Point2f pos2);
 bool TileProximity(Point2f pos1, Point2f pos2); 
 bool TileTooClose(Point2f pos1, Point2f pos2); 
 
-void GameControls();
+void Camera();
+void Keys();
+void CollectKeys();
+void GameScreen();
 void Platforms();
 void MovingPlatforms();
 void PlatformMovement();
 void Grounded();
 void OnMovingPlatform();
-void OnFinishline();
 
 void PlayerMovement();
 void PlayerOffScreen();
@@ -76,7 +81,6 @@ void PlayerFallingDirection();
 void DrawTiles();
 void DrawMovingTiles();
 void Draw();
-void DrawKeyAndFinishline();
 
 struct AABB
 {
@@ -112,15 +116,24 @@ void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 	Play::CreateGameObject(TYPE_BACKGROUND, { DISPLAY_WIDTH / 2, -280 }, 10, "background");
 	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
 
-	Play::CreateGameObject(TYPE_KEY, { DISPLAY_WIDTH / 2, - 1250 }, 10, "key_white_12");
-	GameObject& keyObj(Play::GetGameObjectByType(TYPE_KEY));
-
-	Play::CreateGameObject(TYPE_FINISHLINE, { DISPLAY_WIDTH / 2,-1200 }, 10, "finish");
-	GameObject& finishlineObj(Play::GetGameObjectByType(TYPE_FINISHLINE));
-
 	Play::CreateGameObject(TYPE_DOOR, { 1200,620 }, 10, "door");
 	GameObject& doorObj(Play::GetGameObjectByType(TYPE_DOOR));
 
+	Play::CreateGameObject(TYPE_WHITEKEY, { DISPLAY_WIDTH / 2, Play::RandomRollRange(-800,-1200) }, 10, "key_white_12"); 
+	GameObject& keyWObj(Play::GetGameObjectByType(TYPE_WHITEKEY)); 
+
+	Play::CreateGameObject(TYPE_ORANGEKEY, { Play::RandomRollRange(900,1250), Play::RandomRollRange(-800,-1200) }, 10, "key_orange_12"); 
+	GameObject& keyOObj(Play::GetGameObjectByType(TYPE_ORANGEKEY)); 
+
+	Play::CreateGameObject(TYPE_GREENKEY, { Play::RandomRollRange(30,380), Play::RandomRollRange(-800,-1200) }, 10, "key_green_12"); 
+	GameObject& keyGObj(Play::GetGameObjectByType(TYPE_GREENKEY)); 
+
+	GameObject& inventoryBox{ Play::GetGameObjectByType(TYPE_INVENTORY)};
+	for (int b = 0; b < INVENTORY_SPACES ; b++)
+	{
+		Play::CreateGameObject(TYPE_INVENTORY, {50,260 + 100*b}, 10,"inventorybox");
+	}
+	 
 	std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_MOVINGFLOOR) };
 	for (int movingFloorId : movingFloorIds)
 	{
@@ -140,16 +153,6 @@ bool MainGameUpdate(float elapsedTime)
 
 	Play::SetCameraPosition({ 0 , 0 });
 
-	if (playerObj.pos.y <= 450)
-	{
-		Play::SetCameraPosition({ 0 , playerObj.pos.y - 450 });
-	}
-	if (playerObj.pos.y <= -830)
-	{
-		Play::SetCameraPosition({ 0 , -1280 });
-	}
-
-
 	std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_MOVINGFLOOR) };
 	for (int movingFloorId : movingFloorIds)
 	{
@@ -157,9 +160,9 @@ bool MainGameUpdate(float elapsedTime)
 		movingFloorIdObj.scale = 0.5;
 		movingFloorIdObj.velocity = tileVelocity;
 	}
-
+	
+	Camera();
 	Draw();
-	DrawKeyAndFinishline();
 	DrawTiles();
 	DrawMovingTiles();
 	PlayerMovement();
@@ -178,7 +181,6 @@ bool MainGameUpdate(float elapsedTime)
 		PlayerJump();
 		Grounded();
 		OnMovingPlatform();
-		OnFinishline();
 		Falling();
 		break;
 
@@ -192,11 +194,12 @@ bool MainGameUpdate(float elapsedTime)
 		Umberela();
 		Grounded();
 		OnMovingPlatform();
-		OnFinishline();
 		break;
 	}
-	
-	GameControls();
+
+	GameScreen();
+	Keys();
+	CollectKeys();
 	Play::PresentDrawingBuffer();
 	return Play::KeyDown(VK_ESCAPE);
 }
@@ -208,7 +211,20 @@ int MainGameExit(void)
 	return PLAY_OK;
 }
 
-void GameControls()
+void Camera()
+{
+	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER)); 
+	if (playerObj.pos.y <= 450) 
+	{
+		Play::SetCameraPosition({ 0 , playerObj.pos.y - 450 }); 
+	}
+	if (playerObj.pos.y <= -830) 
+	{
+		Play::SetCameraPosition({ 0 , -1280 }); 
+	}
+}
+
+void GameScreen()
 {
 	if (timer2 <= -60)
 	{
@@ -216,27 +232,60 @@ void GameControls()
 	}
 
 	Play::SetDrawingSpace(Play::SCREEN);
-	if (timer2 >= 0)
-	{
-		Play::DrawFontText("132px", "Use arrow keys to walk", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
-	}
-	else if (timer2 < 0)
-	{
-		Play::DrawFontText("132px", "Use space to jump", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
-	}
+
+		if (timer2 >= 0)
+		{
+			Play::DrawFontText("132px", "Use arrow keys to walk", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
+		}
+		else if (timer2 < 0)
+		{
+			Play::DrawFontText("132px", "Use space to jump", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
+		}
+
+		std::vector<int>inventoryIds{ Play::CollectGameObjectIDsByType(TYPE_INVENTORY) };
+		for (int inventoryId : inventoryIds)
+		{
+			GameObject& inventoryIdObj{ Play::GetGameObject(inventoryId) };
+			Play::DrawObjectRotated(inventoryIdObj);
+		}
+
 	Play::SetDrawingSpace(Play::WORLD);
+	
+}
+
+void Keys()
+{
+
+	GameObject& keyWObj(Play::GetGameObjectByType(TYPE_WHITEKEY));
+	Play::DrawObjectRotated(keyWObj);
+	keyWObj.scale = 2;
+	keyWObj.animSpeed = 2;
+	Play::UpdateGameObject(keyWObj);
+
+	GameObject& keyOObj(Play::GetGameObjectByType(TYPE_ORANGEKEY));
+	Play::DrawObjectRotated(keyOObj);
+	keyOObj.scale = 2;
+	keyOObj.animSpeed = 2;
+	Play::UpdateGameObject(keyOObj);
+
+	GameObject& keyGObj(Play::GetGameObjectByType(TYPE_GREENKEY));
+	Play::DrawObjectRotated(keyGObj);
+	keyGObj.scale = 2;
+	keyGObj.animSpeed = 2;
+	Play::UpdateGameObject(keyGObj);
+
 }
 
 void Draw()
 {
-	Play::ClearDrawingBuffer(Play::cBlack);
+	Play::ClearDrawingBuffer(Play::cBlack); 
 
-	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
-	Play::DrawObjectRotated(backgroundObj);
+	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND)); 
+	Play::DrawObjectRotated(backgroundObj); 
 
-	GameObject& doorObj(Play::GetGameObjectByType(TYPE_DOOR));
-	Play::DrawObjectRotated(doorObj);
-	doorObj.scale = 2;
+	GameObject& doorObj(Play::GetGameObjectByType(TYPE_DOOR)); 
+	Play::DrawObjectRotated(doorObj); 
+	doorObj.scale = 2; 
 }
 
 bool HasCollided(Point2f pos1, Point2f pos2)
@@ -560,35 +609,6 @@ void DrawTiles()
 	Play::DrawLine(aabb[TYPE_PLAYER].TopLeft(), aabb[TYPE_PLAYER].TopRight(), Play::cGreen);
 	Play::DrawLine(aabb[TYPE_PLAYER].BottomRight(), aabb[TYPE_PLAYER].BottomLeft(), Play::cGreen);
 
-	GameObject& finishlineObj{ Play::GetGameObjectByType(TYPE_FINISHLINE) };
-	aabb[TYPE_FINISHLINE].pos = Point2D(finishlineObj.pos);
-	aabb[TYPE_FINISHLINE].size = Vector2D(100.f, 25.f);
-	Play::DrawLine(aabb[TYPE_FINISHLINE].BottomLeft(), aabb[TYPE_FINISHLINE].TopLeft(), Play::cGreen);
-	Play::DrawLine(aabb[TYPE_FINISHLINE].TopRight(), aabb[TYPE_FINISHLINE].BottomRight(), Play::cGreen);
-	Play::DrawLine(aabb[TYPE_FINISHLINE].TopLeft(), aabb[TYPE_FINISHLINE].TopRight(), Play::cGreen);
-	Play::DrawLine(aabb[TYPE_FINISHLINE].BottomRight(), aabb[TYPE_FINISHLINE].BottomLeft(), Play::cGreen);
-
-}
-
-void DrawKeyAndFinishline()
-{
-	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
-	GameObject& keyObj(Play::GetGameObjectByType(TYPE_KEY));
-	GameObject& finishlineObj(Play::GetGameObjectByType(TYPE_FINISHLINE));
-
-	keyObj.scale = 2;
-	keyObj.animSpeed = 1;
-
-	finishlineObj.scale = 2;
-
-	if (HasCollided(playerObj.pos, keyObj.pos))
-	{
-	keyObj.pos = playerObj.pos;
-	HasKey = 1;
-	}
-	
-	Play::DrawObjectRotated(finishlineObj);
-	Play::DrawObjectRotated(keyObj);
 }
 
 void Grounded()
@@ -650,30 +670,6 @@ void OnMovingPlatform()
 
 			gamestate.PlayerState = STATE_WALKING; 
 		}
-	}
-}
-
-void OnFinishline()
-{
-	GameObject& finishlineObj(Play::GetGameObjectByType(TYPE_FINISHLINE));
-	aabb[TYPE_FINISHLINE].pos = Point2D(finishlineObj.pos);
-	aabb[TYPE_FINISHLINE].size = Vector2D(100.f, 25.f);
-
-	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-	aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos);
-	aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f);
-
-	bool left = (aabb[TYPE_FINISHLINE].Left().x < aabb[TYPE_PLAYER].Right().x);
-	bool right = (aabb[TYPE_FINISHLINE].Right().x > aabb[TYPE_PLAYER].Left().x);
-	bool up = (aabb[TYPE_FINISHLINE].Top().y < aabb[TYPE_PLAYER].Bottom().y);
-	bool down = (aabb[TYPE_FINISHLINE].Bottom().y > aabb[TYPE_PLAYER].Bottom().y);
-
-	if (up && down && left && right)
-	{
-		playerObj.velocity = { 0,0 };
-		gravity = { 0,0 };
-		playerObj.pos.y = finishlineObj.pos.y - 64;
-		gamestate.PlayerState = STATE_WALKING;
 	}
 }
 
@@ -762,8 +758,6 @@ void Umberela()
 {
 	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
 		
-	if (HasKey == 1)
-	{
 		if (Play::KeyDown(VK_SHIFT))
 		{
 			gravity = { 0, 1.f };
@@ -791,7 +785,6 @@ void Umberela()
 				Play::SetSprite(playerObj, "falling_left", 1.0f);
 			}
 		}
-	}
 }
 
 void PlayerIdleDirection()
@@ -848,4 +841,41 @@ void PlayerFallingDirection()
 		Play::SetSprite(playerObj, "falling_left", 1.0f);
 	}
 	Play::UpdateGameObject(playerObj);
+}
+
+void CollectKeys()
+{
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+	std::vector<int>inventoryIds{ Play::CollectGameObjectIDsByType(TYPE_INVENTORY) };
+
+	GameObject& keyWObj(Play::GetGameObjectByType(TYPE_WHITEKEY));
+	GameObject& keyOObj(Play::GetGameObjectByType(TYPE_ORANGEKEY));
+	GameObject& keyGObj(Play::GetGameObjectByType(TYPE_GREENKEY));
+
+		if (HasCollided(keyWObj.pos, playerObj.pos))
+		{
+
+			keyWObj.pos = { 50,-1060 + 100 * HasKey };
+			++HasKey;
+			Play::UpdateGameObject(keyWObj);
+
+		}
+
+		if (HasCollided(keyOObj.pos, playerObj.pos))
+		{
+
+			keyOObj.pos = { 50,-1060 + 100 * HasKey };
+			++HasKey;
+			Play::UpdateGameObject(keyOObj);
+
+		}
+
+		if (HasCollided(keyGObj.pos, playerObj.pos))
+		{
+
+			keyGObj.pos = { 50,-1060 + 100 * HasKey };
+			++HasKey;
+			Play::UpdateGameObject(keyGObj);
+
+		}
 }
