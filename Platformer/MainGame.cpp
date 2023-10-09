@@ -9,6 +9,8 @@ int DISPLAY_SCALE{ 1 };
 int HEIGHT = -1;
 int timer = 0;
 int facing = 0;
+int Fallen = 0;
+int HasKey = 0;
 
 Vector2D gravity{ 0,0 };
 Vector2D resistance = { -0.5f,0 };
@@ -20,9 +22,11 @@ Vector2D PLAYER_JUMP = { 0,-40 };
 
 enum GameObjectType
 {
-	TYPE_PLAYER = 0,
-	TYPE_FLOOR,
+	TYPE_FLOOR = 0,
 	TYPE_MOVINGFLOOR,
+	TYPE_KEY,
+	TYPE_FINISHLINE,
+	TYPE_PLAYER,
 	TYPE_BACKGROUND,
 };
 
@@ -41,14 +45,16 @@ struct GameState
 
 GameState gamestate;
 
-bool TileProximity(Point2f pos1, Point2f pos2);
-bool TileTooClose(Point2f pos1, Point2f pos2);
+bool HasCollided(Point2f pos1, Point2f pos2);
+bool TileProximity(Point2f pos1, Point2f pos2); 
+bool TileTooClose(Point2f pos1, Point2f pos2); 
 
 void Platforms();
 void MovingPlatforms();
 void PlatformMovement();
 void Grounded();
 void OnMovingPlatform();
+void OnFinishline();
 
 void PlayerMovement();
 void PlayerOffScreen();
@@ -67,6 +73,7 @@ void PlayerFallingDirection();
 void DrawTiles();
 void DrawMovingTiles();
 void Draw();
+void DrawKeyAndFinishline();
 
 struct AABB
 {
@@ -83,7 +90,7 @@ struct AABB
 	Point2D TopRight() { return Point2D(pos.x + size.x, pos.y - size.y); }
 	Point2D BottomLeft() { return Point2D(pos.x - size.x, pos.y + size.y); }
 };
-AABB aabb[3];
+AABB aabb[4];
 
 
 
@@ -95,12 +102,18 @@ void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 
 	Platforms();
 	MovingPlatforms();
-	Play::CreateGameObject(TYPE_PLAYER, { DISPLAY_WIDTH / 2, 674 }, 10, "walk_right_8");
+	Play::CreateGameObject(TYPE_PLAYER, { DISPLAY_WIDTH / 2, 675 }, 10, "walk_right_8");
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	playerObj.velocity = PLAYER_VELOCITY;
 
 	Play::CreateGameObject(TYPE_BACKGROUND, { DISPLAY_WIDTH / 2, -280 }, 10, "background");
 	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
+
+	Play::CreateGameObject(TYPE_KEY, { DISPLAY_WIDTH / 2, - 1250 }, 10, "key_white_12");
+	GameObject& keyObj(Play::GetGameObjectByType(TYPE_KEY));
+
+	Play::CreateGameObject(TYPE_FINISHLINE, { DISPLAY_WIDTH / 2,-1200 }, 10, "finish");
+	GameObject& finishlineObj(Play::GetGameObjectByType(TYPE_FINISHLINE));
 
 	std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_MOVINGFLOOR) };
 	for (int movingFloorId : movingFloorIds)
@@ -111,19 +124,25 @@ void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 
 	Grounded();
 }
-
+ 
 // Called by PlayBuffer every frame (60 times a second!)
 bool MainGameUpdate(float elapsedTime)
 {
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	playerObj.velocity = playerObj.velocity + gravity;
 	HEIGHT = playerObj.pos.y;
+
 	Play::SetCameraPosition({ 0 , 0 });
 
 	if (playerObj.pos.y <= 450)
 	{
 		Play::SetCameraPosition({ 0 , playerObj.pos.y - 450 });
 	}
+	if (playerObj.pos.y <= -920)
+	{
+		Play::SetCameraPosition({ 0 , -1280 });
+	}
+
 
 	std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_MOVINGFLOOR) };
 	for (int movingFloorId : movingFloorIds)
@@ -134,6 +153,7 @@ bool MainGameUpdate(float elapsedTime)
 	}
 
 	Draw();
+	DrawKeyAndFinishline();
 	DrawTiles();
 	DrawMovingTiles();
 	PlayerMovement();
@@ -151,6 +171,7 @@ bool MainGameUpdate(float elapsedTime)
 		PlayerJump();
 		Grounded();
 		OnMovingPlatform();
+		OnFinishline();
 		Falling();
 		break;
 
@@ -164,9 +185,10 @@ bool MainGameUpdate(float elapsedTime)
 		Umberela();
 		Grounded();
 		OnMovingPlatform();
+		OnFinishline();
 		break;
 	}
-
+	
 	Play::PresentDrawingBuffer();
 	return Play::KeyDown(VK_ESCAPE);
 }
@@ -181,6 +203,7 @@ int MainGameExit(void)
 void Draw()
 {
 	Play::ClearDrawingBuffer(Play::cBlack);
+
 	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
 	Play::DrawObjectRotated(backgroundObj);
 
@@ -189,9 +212,23 @@ void Draw()
 	Play::SetDrawingSpace(Play::WORLD);
 }
 
+bool HasCollided(Point2f pos1, Point2f pos2)
+{
+	const float DISTANCE_TEST = 40.0f;
+
+	Vector2f separation = pos2 - pos1;
+	float dist = sqrt((separation.x * separation.x) + (separation.y * separation.y));
+	if (dist < DISTANCE_TEST)
+	{
+		return true;
+	}
+	else
+		return false;
+}
+
 bool TileTooClose(Point2f pos1, Point2f pos2)
 {
-	const float DISTANCE_TEST = 500.0f;
+	const float DISTANCE_TEST = 200.0f;
 
 	Vector2f separation = pos2 - pos1;
 	float dist = sqrt((separation.x * separation.x) + (separation.y * separation.y));
@@ -205,7 +242,7 @@ bool TileTooClose(Point2f pos1, Point2f pos2)
 
 bool TileProximity(Point2f pos1, Point2f pos2)
 {
-	const float DISTANCE_TEST = 600.f;
+	const float DISTANCE_TEST = 1000.f;
 
 	Vector2f separation = pos2 - pos1;
 	float dist = sqrt((separation.x * separation.x) + (separation.y * separation.y));
@@ -230,19 +267,15 @@ void PlayerOffScreen()
 	}
 }
 
-
-
 void Platforms()
 {
 	int levelY = 700;
-	int numPlatforms = 70;
+	int numLevels = 12;
 	int widthSpacing = 50;
 	int heightSpacing = 300;
 	int successfullCollision = 0;
-	int xPosition = 0;
-	int yPosition = 0;
 
-	for (int n = 0; n < 2; n++)
+	for (int n = 0; n < numLevels; n++)
 	{
 
 		if (n == 0)
@@ -252,16 +285,36 @@ void Platforms()
 				Play::CreateGameObject(TYPE_FLOOR, { m * widthSpacing + 25, levelY }, 10, "floor");
 			}
 		}
+		else if (n == 1)
+		{
+			levelY = 550;
+			for (int m = 1; m < 4; m++)
+			{
+				Play::CreateGameObject(TYPE_FLOOR, { m * (DISPLAY_WIDTH/4), levelY}, 10, "floor");
+			}
+		}
 		else
 		{
+			int numPlatforms = Play::RandomRollRange(5, 7);
+			std::vector<int> floorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
 
 			for (int m = 2; m < numPlatforms; m++)
 			{
-				int xPosition = Play::RandomRollRange(50, 1230);
-				int yPosition = Play::RandomRollRange(-2000, 600);
 				int successfullCollision = 0;
-				int tooClose = 1;
+				int tooClose = 0;
+				int randomSpacing = Play::RandomRollRange(50, 1230);
 
+				for (int floorId : floorIds)
+				{
+					GameObject& floorIdObj = Play::GetGameObject(floorId);
+
+					if (TileTooClose({ randomSpacing,levelY }, floorIdObj.pos))
+					{
+						++tooClose;
+					}
+
+				}
+				
 				if (tooClose != 0)
 				{
 					do
@@ -273,13 +326,11 @@ void Platforms()
 						std::vector<int> floorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
 						for (int floorId : floorIds)
 						{
-							tooClose = floorIds.size() - 1;
-
 							GameObject& floorIdObj = Play::GetGameObject(floorId);
-
-							if (!TileTooClose({ xPosition,yPosition }, floorIdObj.pos))
+							tooClose = 0;
+							if (TileTooClose({ xPosition,yPosition }, floorIdObj.pos))
 							{
-								--tooClose;
+								++tooClose;
 							}
 							if (TileProximity({ xPosition,yPosition }, floorIdObj.pos))
 							{
@@ -287,12 +338,16 @@ void Platforms()
 							}
 
 						}
-					} while (successfullCollision == 0 && tooClose < 0);
+					} while (successfullCollision = 0 || tooClose != 0);
 
 				}
-				Play::CreateGameObject(TYPE_FLOOR, { xPosition,yPosition }, 10, "floor");
+				else
+				{
+					Play::CreateGameObject(TYPE_FLOOR, { randomSpacing, levelY }, 10, "floor");
+				}
 			}
 		}
+        
 		levelY -= heightSpacing;
 	}
 }
@@ -300,27 +355,21 @@ void Platforms()
 void MovingPlatforms()
 {
 	int levelY = 400;
-	int numPlatforms = 20;
+	int numLevels = 11;
 	int heightSpacing = 300;
 	int successfullCollision = 0;
 
-	for (int n = 0; n < numPlatforms; n++)
+	for (int n = 0; n < numLevels; n++)
 	{
-		int xPosition = Play::RandomRollRange(100,1200);
-		int yPosition = Play::RandomRollRange(-2000, 600);
+		int numPlatforms = Play::RandomRollRange(3, 5);
 
-		std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
-		for (int movingFloorId : movingFloorIds)
+		for (int m = 1; m < numPlatforms; m++)
 		{
-			GameObject& movingFloorIdObj = Play::GetGameObject(movingFloorId);
+			int randomSpacing = DISPLAY_WIDTH / numPlatforms;
+			Play::CreateGameObject(TYPE_MOVINGFLOOR, { m * randomSpacing, levelY }, 10, "movingfloor");
 
-			if (TileTooClose({ xPosition,yPosition }, movingFloorIdObj.pos))
-			{
-				int xPosition = Play::RandomRollRange(100, 1200);
-				int yPosition = Play::RandomRollRange(-2000, 550);
-			}
 		}
-		Play::CreateGameObject(TYPE_MOVINGFLOOR, { xPosition, yPosition }, 10, "movingfloor");
+
 		levelY -= heightSpacing;
 	}
 }
@@ -334,7 +383,7 @@ void DrawMovingTiles()
 		movingFloorIdObj.scale = 0.5;
 
 		Play::UpdateGameObject(movingFloorIdObj);
-		Play::DrawObjectRotated(movingFloorIdObj); 
+		Play::DrawObjectRotated(movingFloorIdObj);
 
 		aabb[TYPE_MOVINGFLOOR].pos = Point2D(movingFloorIdObj.pos);
 		aabb[TYPE_MOVINGFLOOR].size = Vector2D(25.f, 25.f);
@@ -342,8 +391,101 @@ void DrawMovingTiles()
 		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].TopRight(), aabb[TYPE_MOVINGFLOOR].BottomRight(), Play::cGreen);
 		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].TopLeft(), aabb[TYPE_MOVINGFLOOR].TopRight(), Play::cGreen);
 		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].BottomRight(), aabb[TYPE_MOVINGFLOOR].BottomLeft(), Play::cGreen);
- 	}
+	}
 }
+
+//Working on better random tile generation
+
+//void Platforms()
+//{
+//	int levelY = 700;
+//	int numPlatforms = 70;
+//	int widthSpacing = 50;
+//	int heightSpacing = 300;
+//	int successfullCollision = 0;
+//	int xPosition = 0;
+//	int yPosition = 0;
+//
+//	for (int n = 0; n < 2; n++)
+//	{
+//
+//		if (n == 0)
+//		{
+//			for (int m = 0; m < 26; m++)
+//			{
+//				Play::CreateGameObject(TYPE_FLOOR, { m * widthSpacing + 25, levelY }, 10, "floor");
+//			}
+//		}
+//		else
+//		{
+//
+//			for (int m = 2; m < numPlatforms; m++)
+//			{
+//				int xPosition = Play::RandomRollRange(50, 1230);
+//				int yPosition = Play::RandomRollRange(-2000, 600);
+//				int successfullCollision = 0;
+//				int tooClose = 1;
+//
+//				if (tooClose != 0)
+//				{
+//					do
+//					{
+//						int xPosition = Play::RandomRollRange(50, 1230);
+//						int yPosition = Play::RandomRollRange(-2000, 600);
+//						successfullCollision = 0;
+//
+//						std::vector<int> floorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
+//						for (int floorId : floorIds)
+//						{
+//							GameObject& floorIdObj = Play::GetGameObject(floorId);
+//							tooClose = 0;
+//							if (TileTooClose({ xPosition,yPosition }, floorIdObj.pos))
+//							{
+//								++tooClose;
+//							}
+//							if (TileProximity({ xPosition,yPosition }, floorIdObj.pos))
+//							{
+//								++successfullCollision;
+//							}
+//
+//						}
+//					} while (successfullCollision = 0 || tooClose != 0);
+//
+//				}
+//				Play::CreateGameObject(TYPE_FLOOR, { xPosition,yPosition }, 10, "floor");
+//			}
+//		}
+//		levelY -= heightSpacing;
+//	}
+//}
+
+//void MovingPlatforms()
+//{
+//	int levelY = 400;
+//	int numPlatforms = 20;
+//	int heightSpacing = 300;
+//	int successfullCollision = 0;
+//
+//	for (int n = 0; n < numPlatforms; n++)
+//	{
+//		int xPosition = Play::RandomRollRange(100,1200);
+//		int yPosition = Play::RandomRollRange(-2000, 600);
+//
+//		std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
+//		for (int movingFloorId : movingFloorIds)
+//		{
+//			GameObject& movingFloorIdObj = Play::GetGameObject(movingFloorId);
+//
+//			if (TileTooClose({ xPosition,yPosition }, movingFloorIdObj.pos))
+//			{
+//				int xPosition = Play::RandomRollRange(100, 1200);
+//				int yPosition = Play::RandomRollRange(-2000, 550);
+//			}
+//		}
+//		Play::CreateGameObject(TYPE_MOVINGFLOOR, { xPosition, yPosition }, 10, "movingfloor");
+//		levelY -= heightSpacing;
+//	}
+//}
 
 void PlatformMovement()
 {
@@ -391,6 +533,35 @@ void DrawTiles()
 	Play::DrawLine(aabb[TYPE_PLAYER].TopLeft(), aabb[TYPE_PLAYER].TopRight(), Play::cGreen);
 	Play::DrawLine(aabb[TYPE_PLAYER].BottomRight(), aabb[TYPE_PLAYER].BottomLeft(), Play::cGreen);
 
+	GameObject& finishlineObj{ Play::GetGameObjectByType(TYPE_FINISHLINE) };
+	aabb[TYPE_FINISHLINE].pos = Point2D(finishlineObj.pos);
+	aabb[TYPE_FINISHLINE].size = Vector2D(100.f, 25.f);
+	Play::DrawLine(aabb[TYPE_FINISHLINE].BottomLeft(), aabb[TYPE_FINISHLINE].TopLeft(), Play::cGreen);
+	Play::DrawLine(aabb[TYPE_FINISHLINE].TopRight(), aabb[TYPE_FINISHLINE].BottomRight(), Play::cGreen);
+	Play::DrawLine(aabb[TYPE_FINISHLINE].TopLeft(), aabb[TYPE_FINISHLINE].TopRight(), Play::cGreen);
+	Play::DrawLine(aabb[TYPE_FINISHLINE].BottomRight(), aabb[TYPE_FINISHLINE].BottomLeft(), Play::cGreen);
+
+}
+
+void DrawKeyAndFinishline()
+{
+	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
+	GameObject& keyObj(Play::GetGameObjectByType(TYPE_KEY));
+	GameObject& finishlineObj(Play::GetGameObjectByType(TYPE_FINISHLINE));
+
+	keyObj.scale = 2;
+	keyObj.animSpeed = 1;
+
+	finishlineObj.scale = 2;
+
+	if (HasCollided(playerObj.pos, keyObj.pos))
+	{
+	keyObj.pos = playerObj.pos;
+	HasKey = 1;
+	}
+	
+	Play::DrawObjectRotated(finishlineObj);
+	Play::DrawObjectRotated(keyObj);
 }
 
 void Grounded()
@@ -455,6 +626,29 @@ void OnMovingPlatform()
 	}
 }
 
+void OnFinishline()
+{
+	GameObject& finishlineObj(Play::GetGameObjectByType(TYPE_FINISHLINE));
+	aabb[TYPE_FINISHLINE].pos = Point2D(finishlineObj.pos);
+	aabb[TYPE_FINISHLINE].size = Vector2D(100.f, 25.f);
+
+	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+	aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos);
+	aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f);
+
+	bool left = (aabb[TYPE_FINISHLINE].Left().x < aabb[TYPE_PLAYER].Right().x);
+	bool right = (aabb[TYPE_FINISHLINE].Right().x > aabb[TYPE_PLAYER].Left().x);
+	bool up = (aabb[TYPE_FINISHLINE].Top().y < aabb[TYPE_PLAYER].Bottom().y);
+	bool down = (aabb[TYPE_FINISHLINE].Bottom().y > aabb[TYPE_PLAYER].Bottom().y);
+
+	if (up && down && left && right)
+	{
+		playerObj.velocity = { 0,0 };
+		gravity = { 0,0 };
+		playerObj.pos.y = finishlineObj.pos.y - 64;
+		gamestate.PlayerState = STATE_WALKING;
+	}
+}
 
 void WalkToFall()
 {
@@ -540,6 +734,9 @@ void Falling()
 void Umberela()
 {
 	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
+		
+	if (HasKey == 1)
+	{
 		if (Play::KeyDown(VK_SHIFT))
 		{
 			gravity = { 0, 1.f };
@@ -567,6 +764,7 @@ void Umberela()
 				Play::SetSprite(playerObj, "falling_left", 1.0f);
 			}
 		}
+	}
 }
 
 void PlayerIdleDirection()
