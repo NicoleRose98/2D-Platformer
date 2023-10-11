@@ -250,14 +250,14 @@ void GameScreen()
 
 		if (timer2 >= 0)
 		{
-			Play::DrawFontText("132px", "Use arrow keys to walk", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
+			Play::DrawFontText("105px", "Use arrow keys to walk", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
 		}
 		else if (timer2 < 0)
 		{
-			Play::DrawFontText("132px", "Use space to jump", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
+			Play::DrawFontText("105px", "Use space to jump", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
 		}
 
-		Play::DrawFontText("64px", "Keys Collected:" + std::to_string(keysCollected) + "/3", { DISPLAY_WIDTH / 2, 650 }, Play::CENTRE);
+		Play::DrawFontText("64px", "Keys Collected:" + std::to_string(keysCollected) + "/3", { DISPLAY_WIDTH / 2, 700 }, Play::CENTRE);
 
 		//std::vector<int>inventoryIds{ Play::CollectGameObjectIDsByType(TYPE_INVENTORY) };
 		//for (int inventoryId : inventoryIds)
@@ -923,12 +923,12 @@ void NPC()
 		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 2)
 		{
 			++dialogueCounter;
-			dialogue = "I lost my keys to this door";
+			dialogue = "I lost my keys";
 		}
 		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 3)
 		{
 			++dialogueCounter;
-			dialogue = "Can you find them for me?";
+			dialogue = "Can you find them?";
 		}
 		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 4)
 		{
