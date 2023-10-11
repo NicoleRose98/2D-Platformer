@@ -47,6 +47,8 @@ enum GameObjectType
 
 enum PlayerState
 {
+	STATE_START,
+	STATE_CONTROLS,
 	STATE_WALKING,
 	STATE_JUMPING,
 	STATE_FALLING,
@@ -54,7 +56,7 @@ enum PlayerState
 
 struct GameState
 {
-	int PlayerState{ STATE_WALKING };
+	int PlayerState{ STATE_START };
 	int attachedTile{ -1 };
 };
 
@@ -63,6 +65,10 @@ GameState gamestate;
 bool HasCollided(Point2f pos1, Point2f pos2);
 bool TileProximity(Point2f pos1, Point2f pos2); 
 bool TileTooClose(Point2f pos1, Point2f pos2); 
+
+void StartScreen();
+void PlayerControls();
+//void EndScreen();
 
 void NPC();
 void Camera();
@@ -156,6 +162,7 @@ void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 	}
 
 	Grounded();
+	gamestate.PlayerState = STATE_START;
 }
  
 // Called by PlayBuffer every frame (60 times a second!)
@@ -164,6 +171,9 @@ bool MainGameUpdate(float elapsedTime)
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	playerObj.velocity = playerObj.velocity + gravity;
 	HEIGHT = playerObj.pos.y;
+	playerObj.scale = 0.5;
+	Play::DrawObjectRotated(playerObj);
+	
 
 	Play::SetCameraPosition({ 0 , 0 });
 
@@ -177,8 +187,6 @@ bool MainGameUpdate(float elapsedTime)
 	
 	Camera();
 	Draw();
-	DrawTiles();
-	DrawMovingTiles();
 	PlayerMovement();
 	PlayerOffScreen();
 	PlatformMovement();
@@ -187,8 +195,18 @@ bool MainGameUpdate(float elapsedTime)
 
 	switch (gamestate.PlayerState)
 	{
+	case STATE_START:
+		StartScreen();
+		break;
+
+	case STATE_CONTROLS:
+		PlayerControls();
+		break;
 
 	case STATE_WALKING:
+		
+		DrawTiles();
+		DrawMovingTiles();
 		PlayerWalkingDirection();
 		WalkToFall();
 		IdleToWalking();
@@ -199,17 +217,22 @@ bool MainGameUpdate(float elapsedTime)
 		break;
 
 	case STATE_JUMPING:
+		DrawTiles();
+		DrawMovingTiles();
 		PlayerJumpingDirection();
 		Falling();
 		break;
 
 	case STATE_FALLING:
+		
+		DrawTiles();
+		DrawMovingTiles();
 		PlayerFallingDirection();
 		Umberela();
 		Grounded();
 		OnMovingPlatform();
 		break;
-	}
+  	}
 
 	GameScreen();
 	Keys();
@@ -224,6 +247,36 @@ int MainGameExit(void)
 {
 	Play::DestroyManager();
 	return PLAY_OK;
+}
+
+void StartScreen()
+{
+	Play::DrawFontText("132px", "STICKMANS CLIMB", {DISPLAY_WIDTH / 2 ,200}, Play::CENTRE);
+	Play::DrawFontText("105px", "Press SPACE To Start", { DISPLAY_WIDTH / 2 ,350}, Play::CENTRE);
+	Play::DrawFontText("105px", "Press CTRL To see controls", { DISPLAY_WIDTH / 2 ,470}, Play::CENTRE);
+	if (Play::KeyPressed(VK_SPACE))
+	{
+		gamestate.PlayerState = STATE_WALKING;
+	}
+	if (Play::KeyPressed(VK_CONTROL))
+	{
+		gamestate.PlayerState = STATE_CONTROLS;
+	}
+}
+
+void PlayerControls()
+{
+	Play::DrawFontText("132px", "PLAYER CONTROLS", { DISPLAY_WIDTH / 2 ,150 }, Play::CENTRE);
+	Play::DrawFontText("105px", "Use the left and right arrow keys to move", { DISPLAY_WIDTH / 2 ,230 }, Play::CENTRE);
+	Play::DrawFontText("105px", "Press space to jump", { DISPLAY_WIDTH / 2 ,310 }, Play::CENTRE);
+	Play::DrawFontText("105px", "When falling hold shift to use your unberela", { DISPLAY_WIDTH / 2 ,390 }, Play::CENTRE);
+	Play::DrawFontText("105px", "to fall slower when needed", { DISPLAY_WIDTH / 2 ,470 }, Play::CENTRE);
+	Play::DrawFontText("64px", "Press CTRL to return to the start menue", { DISPLAY_WIDTH / 2 ,550 }, Play::CENTRE);
+
+	if (Play::KeyPressed(VK_CONTROL))
+	{
+		gamestate.PlayerState = STATE_START;
+	}
 }
 
 void Camera()
@@ -248,14 +301,14 @@ void GameScreen()
 
 	Play::SetDrawingSpace(Play::SCREEN);
 
-		if (timer2 >= 0)
+		/*if (timer2 >= 0)
 		{
 			Play::DrawFontText("105px", "Use arrow keys to walk", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
 		}
 		else if (timer2 < 0)
 		{
 			Play::DrawFontText("105px", "Use space to jump", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
-		}
+		}*/
 
 		Play::DrawFontText("64px", "Keys Collected:" + std::to_string(keysCollected) + "/3", { DISPLAY_WIDTH / 2, 700 }, Play::CENTRE);
 
@@ -490,99 +543,6 @@ void DrawMovingTiles()
 		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].BottomRight(), aabb[TYPE_MOVINGFLOOR].BottomLeft(), Play::cGreen);
 	}
 }
-
-//Working on better random tile generation
-
-//void Platforms()
-//{
-//	int levelY = 700;
-//	int numPlatforms = 70;
-//	int widthSpacing = 50;
-//	int heightSpacing = 300;
-//	int successfullCollision = 0;
-//	int xPosition = 0;
-//	int yPosition = 0;
-//
-//	for (int n = 0; n < 2; n++)
-//	{
-//
-//		if (n == 0)
-//		{
-//			for (int m = 0; m < 26; m++)
-//			{
-//				Play::CreateGameObject(TYPE_FLOOR, { m * widthSpacing + 25, levelY }, 10, "floor");
-//			}
-//		}
-//		else
-//		{
-//
-//			for (int m = 2; m < numPlatforms; m++)
-//			{
-//				int xPosition = Play::RandomRollRange(50, 1230);
-//				int yPosition = Play::RandomRollRange(-2000, 600);
-//				int successfullCollision = 0;
-//				int tooClose = 1;
-//
-//				if (tooClose != 0)
-//				{
-//					do
-//					{
-//						int xPosition = Play::RandomRollRange(50, 1230);
-//						int yPosition = Play::RandomRollRange(-2000, 600);
-//						successfullCollision = 0;
-//
-//						std::vector<int> floorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
-//						for (int floorId : floorIds)
-//						{
-//							GameObject& floorIdObj = Play::GetGameObject(floorId);
-//							tooClose = 0;
-//							if (TileTooClose({ xPosition,yPosition }, floorIdObj.pos))
-//							{
-//								++tooClose;
-//							}
-//							if (TileProximity({ xPosition,yPosition }, floorIdObj.pos))
-//							{
-//								++successfullCollision;
-//							}
-//
-//						}
-//					} while (successfullCollision = 0 || tooClose != 0);
-//
-//				}
-//				Play::CreateGameObject(TYPE_FLOOR, { xPosition,yPosition }, 10, "floor");
-//			}
-//		}
-//		levelY -= heightSpacing;
-//	}
-//}
-
-//void MovingPlatforms()
-//{
-//	int levelY = 400;
-//	int numPlatforms = 20;
-//	int heightSpacing = 300;
-//	int successfullCollision = 0;
-//
-//	for (int n = 0; n < numPlatforms; n++)
-//	{
-//		int xPosition = Play::RandomRollRange(100,1200);
-//		int yPosition = Play::RandomRollRange(-2000, 600);
-//
-//		std::vector<int> movingFloorIds{ Play::CollectGameObjectIDsByType(TYPE_FLOOR) };
-//		for (int movingFloorId : movingFloorIds)
-//		{
-//			GameObject& movingFloorIdObj = Play::GetGameObject(movingFloorId);
-//
-//			if (TileTooClose({ xPosition,yPosition }, movingFloorIdObj.pos))
-//			{
-//				int xPosition = Play::RandomRollRange(100, 1200);
-//				int yPosition = Play::RandomRollRange(-2000, 550);
-//			}
-//		}
-//		Play::CreateGameObject(TYPE_MOVINGFLOOR, { xPosition, yPosition }, 10, "movingfloor");
-//		levelY -= heightSpacing;
-//	}
-//}
 
 void PlatformMovement()
 {
