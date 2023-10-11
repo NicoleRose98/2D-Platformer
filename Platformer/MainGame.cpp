@@ -1,18 +1,27 @@
 #define PLAY_IMPLEMENTATION
 #define PLAY_USING_GAMEOBJECT_MANAGER
 #include "Play.h"
+#include <algorithm>
 
 int DISPLAY_WIDTH{ 1280 };
 int DISPLAY_HEIGHT{ 720 };
 int DISPLAY_SCALE{ 1 };
 int INVENTORY_SPACES{ 3 };
 
+std::string dialogue = "Press TAB to speak";
+int dialogueCounter = 0;
+
 int HEIGHT = -1;
 int timer = 0;
 int timer2 = 60;
 int facing = 0;
 int Fallen = 0;
-int HasKey = 0;
+int keysCollected = 0;
+
+int whiteKeyCollected = 0;
+int orangeKeyCollected = 0;
+int greenKeyCollected = 0;
+
 
 Vector2D gravity{ 0,0 };
 Vector2D resistance = { -0.5f,0 };
@@ -33,6 +42,7 @@ enum GameObjectType
 	TYPE_DOOR,
 	TYPE_INVENTORY,
 	TYPE_BACKGROUND,
+	TYPE_NPC,
 };
 
 enum PlayerState
@@ -54,6 +64,7 @@ bool HasCollided(Point2f pos1, Point2f pos2);
 bool TileProximity(Point2f pos1, Point2f pos2); 
 bool TileTooClose(Point2f pos1, Point2f pos2); 
 
+void NPC();
 void Camera();
 void Keys();
 void CollectKeys();
@@ -112,6 +123,9 @@ void MainGameEntry(PLAY_IGNORE_COMMAND_LINE)
 	Play::CreateGameObject(TYPE_PLAYER, { DISPLAY_WIDTH / 2, 675 }, 10, "walk_right_8");
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	playerObj.velocity = PLAYER_VELOCITY;
+
+	Play::CreateGameObject(TYPE_NPC, { 1150,644 }, 10, "agent8_left_7");
+	GameObject& npcObj(Play::GetGameObjectByType(TYPE_NPC));
 
 	Play::CreateGameObject(TYPE_BACKGROUND, { DISPLAY_WIDTH / 2, -280 }, 10, "background");
 	GameObject& backgroundObj(Play::GetGameObjectByType(TYPE_BACKGROUND));
@@ -200,6 +214,7 @@ bool MainGameUpdate(float elapsedTime)
 	GameScreen();
 	Keys();
 	CollectKeys();
+	NPC();
 	Play::PresentDrawingBuffer();
 	return Play::KeyDown(VK_ESCAPE);
 }
@@ -242,12 +257,14 @@ void GameScreen()
 			Play::DrawFontText("132px", "Use space to jump", { DISPLAY_WIDTH / 2, 50 }, Play::CENTRE);
 		}
 
-		std::vector<int>inventoryIds{ Play::CollectGameObjectIDsByType(TYPE_INVENTORY) };
-		for (int inventoryId : inventoryIds)
-		{
-			GameObject& inventoryIdObj{ Play::GetGameObject(inventoryId) };
-			Play::DrawObjectRotated(inventoryIdObj);
-		}
+		Play::DrawFontText("64px", "Keys Collected:" + std::to_string(keysCollected) + "/3", { DISPLAY_WIDTH / 2, 650 }, Play::CENTRE);
+
+		//std::vector<int>inventoryIds{ Play::CollectGameObjectIDsByType(TYPE_INVENTORY) };
+		//for (int inventoryId : inventoryIds)
+		//{
+		//	GameObject& inventoryIdObj{ Play::GetGameObject(inventoryId) };
+		//	Play::DrawObjectRotated(inventoryIdObj);
+		//}
 
 	Play::SetDrawingSpace(Play::WORLD);
 	
@@ -286,11 +303,15 @@ void Draw()
 	GameObject& doorObj(Play::GetGameObjectByType(TYPE_DOOR)); 
 	Play::DrawObjectRotated(doorObj); 
 	doorObj.scale = 2; 
+
+	GameObject& npcObj(Play::GetGameObjectByType(TYPE_NPC));
+	npcObj.animSpeed = 0;
+	Play::DrawObjectRotated(npcObj);
 }
 
 bool HasCollided(Point2f pos1, Point2f pos2)
 {
-	const float DISTANCE_TEST = 40.0f;
+	const float DISTANCE_TEST = 100.0f;
 
 	Vector2f separation = pos2 - pos1;
 	float dist = sqrt((separation.x * separation.x) + (separation.y * separation.y));
@@ -346,7 +367,7 @@ void PlayerOffScreen()
 void Platforms()
 {
 	int levelY = 700;
-	int numLevels = 12;
+	int numLevels = 7;
 	int widthSpacing = 50;
 	int heightSpacing = 300;
 	int successfullCollision = 0;
@@ -431,7 +452,7 @@ void Platforms()
 void MovingPlatforms()
 {
 	int levelY = 400;
-	int numLevels = 11;
+	int numLevels = 6;
 	int heightSpacing = 300;
 	int successfullCollision = 0;
 
@@ -665,8 +686,16 @@ void OnMovingPlatform()
 			gamestate.attachedTile = movingFloorIdObj.GetId(); 
 			GameObject& attachedTileIdObj = Play::GetGameObject(gamestate.attachedTile);
 
-			playerObj.pos.x = attachedTileIdObj.pos.x ; 
 			playerObj.pos.y = attachedTileIdObj.pos.y - 63;
+
+			if (playerObj.pos.x < attachedTileIdObj.pos.x - 25)
+			{
+				playerObj.pos.x = attachedTileIdObj.pos.x - 25;
+			}
+			else  if (playerObj.pos.x > attachedTileIdObj.pos.x + 25)
+			{
+				playerObj.pos.x = attachedTileIdObj.pos.x + 25;
+			}
 
 			gamestate.PlayerState = STATE_WALKING; 
 		}
@@ -846,36 +875,70 @@ void PlayerFallingDirection()
 void CollectKeys()
 {
 	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-	std::vector<int>inventoryIds{ Play::CollectGameObjectIDsByType(TYPE_INVENTORY) };
 
 	GameObject& keyWObj(Play::GetGameObjectByType(TYPE_WHITEKEY));
 	GameObject& keyOObj(Play::GetGameObjectByType(TYPE_ORANGEKEY));
 	GameObject& keyGObj(Play::GetGameObjectByType(TYPE_GREENKEY));
 
-		if (HasCollided(keyWObj.pos, playerObj.pos))
+		if (HasCollided(keyWObj.pos, playerObj.pos) && !whiteKeyCollected)
 		{
-
-			keyWObj.pos = { 50,-1060 + 100 * HasKey };
-			++HasKey;
-			Play::UpdateGameObject(keyWObj);
-
+			Play::DestroyGameObjectsByType(TYPE_WHITEKEY);
+			whiteKeyCollected = 1;
+			++keysCollected;
 		}
 
-		if (HasCollided(keyOObj.pos, playerObj.pos))
+		if (HasCollided(keyOObj.pos, playerObj.pos) && !orangeKeyCollected)
 		{
-
-			keyOObj.pos = { 50,-1060 + 100 * HasKey };
-			++HasKey;
-			Play::UpdateGameObject(keyOObj);
-
+			Play::DestroyGameObjectsByType(TYPE_ORANGEKEY);
+			orangeKeyCollected = 1;
+			++keysCollected;
 		}
 
-		if (HasCollided(keyGObj.pos, playerObj.pos))
+		if (HasCollided(keyGObj.pos, playerObj.pos) && !greenKeyCollected)
 		{
-
-			keyGObj.pos = { 50,-1060 + 100 * HasKey };
-			++HasKey;
-			Play::UpdateGameObject(keyGObj);
-
+			Play::DestroyGameObjectsByType(TYPE_GREENKEY);
+			greenKeyCollected = 1;
+			++keysCollected;
 		}
+}
+
+void NPC()
+{
+	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
+	GameObject& npcObj(Play::GetGameObjectByType(TYPE_NPC));
+
+	if (HasCollided(playerObj.pos, npcObj.pos))
+	{
+
+		if (Play::KeyPressed(VK_TAB) && dialogueCounter == 0)
+		{
+			++dialogueCounter;
+			dialogue = "Hello Stick Man";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter ==1)
+		{
+			++dialogueCounter;
+			dialogue = "I need your help!";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 2)
+		{
+			++dialogueCounter;
+			dialogue = "I lost my keys to this door";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 3)
+		{
+			++dialogueCounter;
+			dialogue = "Can you find them for me?";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 4)
+		{
+			dialogueCounter = 0;
+			dialogue = "";
+		}
+
+		Play::DrawFontText("64px", dialogue, { npcObj.pos.x, npcObj.pos.y - 50 }, Play::CENTRE);
+
+	}
+	
+	
 }
