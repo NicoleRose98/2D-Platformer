@@ -52,6 +52,7 @@ enum PlayerState
 	STATE_WALKING,
 	STATE_JUMPING,
 	STATE_FALLING,
+	STATE_END,
 };
 
 struct GameState
@@ -68,7 +69,7 @@ bool TileTooClose(Point2f pos1, Point2f pos2);
 
 void StartScreen();
 void PlayerControls();
-//void EndScreen();
+void EndScreen();
 
 void NPC();
 void Camera();
@@ -187,6 +188,7 @@ bool MainGameUpdate(float elapsedTime)
 	
 	Camera();
 	Draw();
+	DrawTiles();
 	PlayerMovement();
 	PlayerOffScreen();
 	PlatformMovement();
@@ -205,7 +207,6 @@ bool MainGameUpdate(float elapsedTime)
 
 	case STATE_WALKING:
 		
-		DrawTiles();
 		DrawMovingTiles();
 		PlayerWalkingDirection();
 		WalkToFall();
@@ -217,7 +218,6 @@ bool MainGameUpdate(float elapsedTime)
 		break;
 
 	case STATE_JUMPING:
-		DrawTiles();
 		DrawMovingTiles();
 		PlayerJumpingDirection();
 		Falling();
@@ -225,12 +225,15 @@ bool MainGameUpdate(float elapsedTime)
 
 	case STATE_FALLING:
 		
-		DrawTiles();
 		DrawMovingTiles();
 		PlayerFallingDirection();
 		Umberela();
 		Grounded();
 		OnMovingPlatform();
+		break;
+
+	case STATE_END:
+		EndScreen();
 		break;
   	}
 
@@ -867,7 +870,7 @@ void NPC()
 	GameObject& playerObj(Play::GetGameObjectByType(TYPE_PLAYER));
 	GameObject& npcObj(Play::GetGameObjectByType(TYPE_NPC));
 
-	if (HasCollided(playerObj.pos, npcObj.pos))
+	if ((HasCollided(playerObj.pos, npcObj.pos)) && (keysCollected <= 2))
 	{
 
 		if (Play::KeyPressed(VK_TAB) && dialogueCounter == 0)
@@ -892,13 +895,85 @@ void NPC()
 		}
 		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 4)
 		{
-			dialogueCounter = 0;
-			dialogue = "";
+			++dialogueCounter;
+			dialogue = "Press TAB to speak";
 		}
-
-		Play::DrawFontText("64px", dialogue, { npcObj.pos.x, npcObj.pos.y - 50 }, Play::CENTRE);
-
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 5)
+		{
+			++dialogueCounter;
+			dialogue = "Did you find them?";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 6)
+		{
+			++dialogueCounter;
+			dialogue = "Oh no!";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 7)
+		{
+			++dialogueCounter;
+			dialogue = "you dont have them all";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 8)
+		{
+			++dialogueCounter;
+			dialogue = "keep looking";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 9)
+		{
+			++dialogueCounter;
+			dialogue = "I need 3 for this door";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 10)
+		{
+			dialogueCounter = 5;
+			dialogue = "Press TAB to speak";
+		}
 	}
-	
-	
+
+	else if ((HasCollided(playerObj.pos, npcObj.pos)) && (keysCollected == 3))
+	{
+
+		if (Play::KeyPressed(VK_TAB) && dialogueCounter == 5)
+		{
+			++dialogueCounter;
+			dialogue = "Did you find them?";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 6)
+		{
+			++dialogueCounter;
+			dialogue = "WOW";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 7)
+		{
+			++dialogueCounter;
+			dialogue = "YOU FOUND ALL 3!";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 8)
+		{
+			++dialogueCounter;
+			dialogue = "Thank you!";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 9)
+		{
+			++dialogueCounter;
+			dialogue = "Lets get out of here.";
+		}
+		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 10)
+		{
+			gamestate.PlayerState = STATE_END;
+		}
+	}
+	else
+	{
+		dialogue = "Press TAB to speak";
+	}
+	Play::DrawFontText("64px", dialogue, { npcObj.pos.x - 50, npcObj.pos.y - 100 }, Play::CENTRE);
+
+}
+
+void EndScreen()
+{
+	Play::DrawFontText("132px", "CONGRATULATIONS", { DISPLAY_WIDTH / 2, 300 }, Play::CENTRE);
+	Play::DrawFontText("105px", "You completed the game", { DISPLAY_WIDTH / 2, 400}, Play::CENTRE);
+	Play::DrawFontText("105px", "Press ESC to leave the game.", { DISPLAY_WIDTH / 2, 500 }, Play::CENTRE);
 }
