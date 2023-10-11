@@ -537,13 +537,6 @@ void DrawMovingTiles()
 
 		Play::UpdateGameObject(movingFloorIdObj);
 		Play::DrawObjectRotated(movingFloorIdObj);
-
-		aabb[TYPE_MOVINGFLOOR].pos = Point2D(movingFloorIdObj.pos);
-		aabb[TYPE_MOVINGFLOOR].size = Vector2D(25.f, 25.f);
-		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].BottomLeft(), aabb[TYPE_MOVINGFLOOR].TopLeft(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].TopRight(), aabb[TYPE_MOVINGFLOOR].BottomRight(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].TopLeft(), aabb[TYPE_MOVINGFLOOR].TopRight(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_MOVINGFLOOR].BottomRight(), aabb[TYPE_MOVINGFLOOR].BottomLeft(), Play::cGreen);
 	}
 }
 
@@ -575,24 +568,7 @@ void DrawTiles()
 		floorIdObj.scale = 0.5;
 		Play::UpdateGameObject(floorIdObj);
 		Play::DrawObjectRotated(floorIdObj);
-
-
-		aabb[TYPE_FLOOR].pos = Point2D(floorIdObj.pos);
-		aabb[TYPE_FLOOR].size = Vector2D(25.f, 25.f);
-		Play::DrawLine(aabb[TYPE_FLOOR].BottomLeft(), aabb[TYPE_FLOOR].TopLeft(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_FLOOR].TopRight(), aabb[TYPE_FLOOR].BottomRight(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_FLOOR].TopLeft(), aabb[TYPE_FLOOR].TopRight(), Play::cGreen);
-		Play::DrawLine(aabb[TYPE_FLOOR].BottomRight(), aabb[TYPE_FLOOR].BottomLeft(), Play::cGreen);
 	}
-
-	GameObject& playerObj{ Play::GetGameObjectByType(TYPE_PLAYER) };
-	aabb[TYPE_PLAYER].pos = Point2D(playerObj.pos);
-	aabb[TYPE_PLAYER].size = Vector2D(20.f, 40.f);
-	Play::DrawLine(aabb[TYPE_PLAYER].BottomLeft(), aabb[TYPE_PLAYER].TopLeft(), Play::cGreen);
-	Play::DrawLine(aabb[TYPE_PLAYER].TopRight(), aabb[TYPE_PLAYER].BottomRight(), Play::cGreen);
-	Play::DrawLine(aabb[TYPE_PLAYER].TopLeft(), aabb[TYPE_PLAYER].TopRight(), Play::cGreen);
-	Play::DrawLine(aabb[TYPE_PLAYER].BottomRight(), aabb[TYPE_PLAYER].BottomLeft(), Play::cGreen);
-
 }
 
 void Grounded()
@@ -932,33 +908,32 @@ void NPC()
 
 	else if ((HasCollided(playerObj.pos, npcObj.pos)) && (keysCollected == 3))
 	{
-
-		if (Play::KeyPressed(VK_TAB) && dialogueCounter == 5)
+		if (Play::KeyPressed(VK_TAB) && (dialogueCounter == 5 || dialogueCounter == 0))
 		{
 			++dialogueCounter;
 			dialogue = "Did you find them?";
 		}
-		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 6)
+		else if (Play::KeyPressed(VK_TAB) && (dialogueCounter == 6 || dialogueCounter == 1))
 		{
 			++dialogueCounter;
 			dialogue = "WOW";
 		}
-		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 7)
+		else if (Play::KeyPressed(VK_TAB) && (dialogueCounter == 7 || dialogueCounter == 2))
 		{
 			++dialogueCounter;
 			dialogue = "YOU FOUND ALL 3!";
 		}
-		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 8)
+		else if (Play::KeyPressed(VK_TAB) && (dialogueCounter == 8|| dialogueCounter == 3))
 		{
 			++dialogueCounter;
 			dialogue = "Thank you!";
 		}
-		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 9)
+		else if (Play::KeyPressed(VK_TAB) && (dialogueCounter == 9 || dialogueCounter == 4))
 		{
-			++dialogueCounter;
+			dialogueCounter = 50;
 			dialogue = "Lets get out of here.";
 		}
-		else if (Play::KeyPressed(VK_TAB) && dialogueCounter == 10)
+		else if (Play::KeyPressed(VK_TAB) && (dialogueCounter  == 50))
 		{
 			gamestate.PlayerState = STATE_END;
 		}
